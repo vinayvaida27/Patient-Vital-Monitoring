@@ -9,31 +9,9 @@ Live vitals are streamed from a Python simulator into Pub/Sub, processed with Ap
 
 ---
 
-## Table of Contents
-
-- [Architecture Overview](#architecture-overview)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Repository Structure](#repository-structure)
-- [Data Model](#data-model)
-- [Risk Scoring Logic](#risk-scoring-logic)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the Simulator](#running-the-simulator)
-- [Running the Streaming Pipeline](#running-the-streaming-pipeline)
-- [Monitoring & Outputs](#monitoring--outputs)
-- [Troubleshooting](#troubleshooting)
-- [Security & Best Practices](#security--best-practices)
-- [Use Cases](#use-cases)
-- [Author](#author)
-- [License](#license)
-
----
-
 ## Architecture Overview
 
-End-to-end data flow:
+### End-to-End Streaming Flow
 
 ```text
 Patient Vitals Simulator (Python)
@@ -51,7 +29,13 @@ Gold Layer (Aggregated Metrics → BigQuery)
 Analytics / Dashboards (Looker / Tableau / etc.)
 ```
 
-The pipeline runs in **streaming mode** with **windowed aggregations** and exactly-once semantics enabled.
+### 📊 Dataflow Job Graph (Running Pipeline)
+
+The following image shows the **actual streaming Dataflow job** with Bronze, Silver, and Gold stages:
+
+![Dataflow Streaming Job Graph](Data%20Flow%20.jpeg)
+
+The pipeline runs in **streaming mode**, uses **fixed 60-second windows**, and produces analytics-ready outputs continuously.
 
 ---
 
@@ -93,6 +77,8 @@ Patient-Vital-Monitoring/
 │  └─ streaming_medallion_pipeline.py
 ├─ simulator/
 │  └─ patinet_vitals_simulator.py
+├─ Data Flow .jpeg
+├─ bigquery_table.jpeg
 ├─ .env                    # Environment variables (not committed)
 ├─ requirements.txt
 └─ README.md
@@ -118,18 +104,10 @@ Patient-Vital-Monitoring/
 }
 ```
 
-### Silver layer additions
+### Silver Layer (Enriched Fields)
 
 - `risk_score`
 - `risk_level` (Low / Moderate / High)
-
-### Gold layer aggregates (BigQuery)
-
-- `patient_id`
-- `avg_heart_rate`
-- `avg_spo2`
-- `avg_temperature`
-- `max_risk_level`
 
 ---
 
@@ -147,6 +125,24 @@ Risk levels:
 - **Low**: `< 0.3`
 - **Moderate**: `0.3 – 0.6`
 - **High**: `> 0.6`
+
+---
+
+## Gold Layer – BigQuery Analytics
+
+Aggregated **per patient per window**:
+
+- `patient_id`
+- `avg_heart_rate`
+- `avg_spo2`
+- `avg_temperature`
+- `max_risk_level`
+
+### 🧾 BigQuery Output Example
+
+![BigQuery Gold Table](bigquery_table.jpeg)
+
+This table is optimized for dashboards and downstream analytics.
 
 ---
 
@@ -220,13 +216,9 @@ cd simulator
 python patinet_vitals_simulator.py
 ```
 
-The simulator continuously publishes vitals (with optional errors) to Pub/Sub.
-
 ---
 
 ## Running the Streaming Pipeline
-
-### Run on Dataflow (recommended)
 
 ```bash
 cd dataflow
@@ -240,42 +232,14 @@ python streaming_medallion_pipeline.py \
   --streaming
 ```
 
-### Run locally (optional)
-
-```bash
-python streaming_medallion_pipeline.py --runner DirectRunner
-```
-
 ---
 
 ## Monitoring & Outputs
 
-- **Dataflow Console**: job graph, throughput, latency, logs
-- **Bronze (GCS)**: raw JSON messages
-- **Silver (GCS)**: validated & enriched records
-- **Gold (BigQuery)**: aggregated patient metrics
-
-Example query:
-
-```sql
-SELECT *
-FROM `patient-vital.healthcare.patient_risk_analytics`
-ORDER BY patient_id;
-```
-
----
-
-## Troubleshooting
-
-- No data:
-  - Verify simulator is running
-  - Check Pub/Sub subscription
-  - Confirm IAM permissions
-- Pipeline startup failures:
-  - Validate GCS paths
-  - Ensure APIs are enabled
-- Too many filtered records:
-  - Review validation logic in `is_valid_record()`
+- **Dataflow UI**: job graph, throughput, latency
+- **GCS Bronze**: raw JSON messages
+- **GCS Silver**: validated & enriched records
+- **BigQuery Gold**: analytics-ready patient metrics
 
 ---
 
@@ -294,7 +258,7 @@ ORDER BY patient_id;
 - Clinical risk detection
 - Streaming healthcare analytics
 - Public health surveillance
-- Reference Dataflow streaming architecture
+- Production-grade Dataflow reference architecture
 
 ---
 
@@ -308,4 +272,4 @@ GitHub: https://github.com/vinayvaida27
 
 ## License
 
-MIT / Apache 2.0 (choose one and add a LICENSE file)
+MIT or Apache 2.0 (add a LICENSE file)
